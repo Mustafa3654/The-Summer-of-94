@@ -280,10 +280,10 @@ public static class SetupSummerOf94
         yard.transform.SetParent(parent);
 
         // Perimeter fence with a gap for the gate.
-        MarkNavigationStatic(CreateBlock(yard.transform, "Fence West", new Vector3(-11.5f, 1.5f, -22f), new Vector3(17f, 3f, 0.3f), metalMaterial));
-        MarkNavigationStatic(CreateBlock(yard.transform, "Fence East", new Vector3(11.5f, 1.5f, -22f), new Vector3(17f, 3f, 0.3f), metalMaterial));
-        MarkNavigationStatic(CreateBlock(yard.transform, "Gate Post West", new Vector3(-3.2f, 1.8f, -22f), new Vector3(0.5f, 3.6f, 0.5f), beamMaterial));
-        MarkNavigationStatic(CreateBlock(yard.transform, "Gate Post East", new Vector3(3.2f, 1.8f, -22f), new Vector3(0.5f, 3.6f, 0.5f), beamMaterial));
+        CreateBlock(yard.transform, "Fence West", new Vector3(-11.5f, 1.5f, -22f), new Vector3(17f, 3f, 0.3f), metalMaterial);
+        CreateBlock(yard.transform, "Fence East", new Vector3(11.5f, 1.5f, -22f), new Vector3(17f, 3f, 0.3f), metalMaterial);
+        CreateBlock(yard.transform, "Gate Post West", new Vector3(-3.2f, 1.8f, -22f), new Vector3(0.5f, 3.6f, 0.5f), beamMaterial);
+        CreateBlock(yard.transform, "Gate Post East", new Vector3(3.2f, 1.8f, -22f), new Vector3(0.5f, 3.6f, 0.5f), beamMaterial);
 
         // Gate: the trigger collider lives on the same object as the component, so
         // OnTriggerEnter actually reaches CampExitGate.
@@ -293,8 +293,6 @@ public static class SetupSummerOf94
 
         GameObject leftHalf = CreateBlock(gate.transform, "Gate Half West", new Vector3(-1.55f, 1.5f, 0f), new Vector3(3.1f, 3f, 0.22f), metalMaterial);
         GameObject rightHalf = CreateBlock(gate.transform, "Gate Half East", new Vector3(1.55f, 1.5f, 0f), new Vector3(3.1f, 3f, 0.22f), metalMaterial);
-        MarkNavigationStatic(leftHalf);
-        MarkNavigationStatic(rightHalf);
 
         BoxCollider escapeTrigger = gate.AddComponent<BoxCollider>();
         escapeTrigger.isTrigger = true;
@@ -314,8 +312,7 @@ public static class SetupSummerOf94
 
         // The generator itself.
         GameObject generator = CreateBlock(yard.transform, "Camp Power Generator", new Vector3(8.5f, 0.6f, -13f), new Vector3(1.9f, 1.2f, 1.2f), metalMaterial);
-        MarkNavigationStatic(generator);
-        MarkNavigationStatic(CreateBlock(yard.transform, "Generator Exhaust Stack", new Vector3(8.9f, 1.55f, -13f), new Vector3(0.16f, 0.8f, 0.16f), metalMaterial));
+        CreateBlock(yard.transform, "Generator Exhaust Stack", new Vector3(8.9f, 1.55f, -13f), new Vector3(0.16f, 0.8f, 0.16f), metalMaterial);
 
         generator.AddComponent<AudioSource>();
         PowerGenerator powerGenerator = generator.AddComponent<PowerGenerator>();
@@ -334,7 +331,7 @@ public static class SetupSummerOf94
 
     private static Light CreateFloodlight(Transform parent, string lightName, Vector3 basePosition, Material poleMaterial)
     {
-        MarkNavigationStatic(CreateBlock(parent, $"{lightName} Pole", basePosition + new Vector3(0f, 2.6f, 0f), new Vector3(0.22f, 5.2f, 0.22f), poleMaterial));
+        CreateBlock(parent, $"{lightName} Pole", basePosition + new Vector3(0f, 2.6f, 0f), new Vector3(0.22f, 5.2f, 0.22f), poleMaterial);
 
         GameObject lightObject = new GameObject(lightName);
         lightObject.transform.SetParent(parent);
@@ -564,7 +561,6 @@ public static class SetupSummerOf94
         }
 
         meshCollider.sharedMesh = ground.GetComponent<MeshFilter>().sharedMesh;
-        MarkNavigationStatic(ground);
     }
 
     private const float WallHeight = 4f;
@@ -574,8 +570,8 @@ public static class SetupSummerOf94
 
     /// <summary>
     /// Builds the cabin shell: entrance foyer, main corridor, an open bunk room and a locked
-    /// camp office. All floor and wall geometry is flagged Navigation Static, ready for a
-    /// NavMesh bake in Step 5.
+    /// camp office. Every wall and floor gets a collider, which is what the NavMeshSurface on
+    /// the Environment object collects when it bakes the NavMesh at runtime.
     /// </summary>
     private static void CreateCabinCorridor(Transform parent, Material wallMaterial, Material beamMaterial)
     {
@@ -614,14 +610,14 @@ public static class SetupSummerOf94
             wallMaterial,
             beamMaterial);
 
-        MarkNavigationStatic(CreateBlock(corridor.transform, "Far Cabin Wall", new Vector3(0f, 2f, 17f), new Vector3(6.7f, WallHeight, WallThickness), wallMaterial));
+        CreateBlock(corridor.transform, "Far Cabin Wall", new Vector3(0f, 2f, 17f), new Vector3(6.7f, WallHeight, WallThickness), wallMaterial);
         CreateBlock(corridor.transform, "Cabin Ceiling", new Vector3(0f, 4.05f, 4f), new Vector3(6.7f, 0.25f, 26f), beamMaterial);
 
         for (int i = 0; i < 5; i++)
         {
             float z = -7f + i * 6f;
-            MarkNavigationStatic(CreateBlock(corridor.transform, $"Left Support Beam {i + 1}", new Vector3(-3.05f, 1.95f, z), new Vector3(0.42f, 3.9f, 0.42f), beamMaterial));
-            MarkNavigationStatic(CreateBlock(corridor.transform, $"Right Support Beam {i + 1}", new Vector3(3.05f, 1.95f, z), new Vector3(0.42f, 3.9f, 0.42f), beamMaterial));
+            CreateBlock(corridor.transform, $"Left Support Beam {i + 1}", new Vector3(-3.05f, 1.95f, z), new Vector3(0.42f, 3.9f, 0.42f), beamMaterial);
+            CreateBlock(corridor.transform, $"Right Support Beam {i + 1}", new Vector3(3.05f, 1.95f, z), new Vector3(0.42f, 3.9f, 0.42f), beamMaterial);
         }
 
         CreateBunkRoom(parent, wallMaterial, beamMaterial);
@@ -635,16 +631,16 @@ public static class SetupSummerOf94
         GameObject room = new GameObject("Bunk Room");
         room.transform.SetParent(parent);
 
-        MarkNavigationStatic(CreateBlock(room.transform, "Bunk Room Outer Wall", new Vector3(-11.5f, 2f, 6f), new Vector3(WallThickness, WallHeight, 9.35f), wallMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Bunk Room Near Wall", new Vector3(-7.42f, 2f, 1.5f), new Vector3(8.5f, WallHeight, WallThickness), wallMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Bunk Room Far Wall", new Vector3(-7.42f, 2f, 10.5f), new Vector3(8.5f, WallHeight, WallThickness), wallMaterial));
+        CreateBlock(room.transform, "Bunk Room Outer Wall", new Vector3(-11.5f, 2f, 6f), new Vector3(WallThickness, WallHeight, 9.35f), wallMaterial);
+        CreateBlock(room.transform, "Bunk Room Near Wall", new Vector3(-7.42f, 2f, 1.5f), new Vector3(8.5f, WallHeight, WallThickness), wallMaterial);
+        CreateBlock(room.transform, "Bunk Room Far Wall", new Vector3(-7.42f, 2f, 10.5f), new Vector3(8.5f, WallHeight, WallThickness), wallMaterial);
         CreateBlock(room.transform, "Bunk Room Ceiling", new Vector3(-7.42f, 4.05f, 6f), new Vector3(8.5f, 0.25f, 9.35f), beamMaterial);
 
         // A pair of bunks and the table the key rests on.
-        MarkNavigationStatic(CreateBlock(room.transform, "Bunk Frame Lower", new Vector3(-10.4f, 0.55f, 8.4f), new Vector3(1.7f, 0.24f, 3.4f), beamMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Bunk Frame Upper", new Vector3(-10.4f, 1.75f, 8.4f), new Vector3(1.7f, 0.24f, 3.4f), beamMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Bunk Frame Posts", new Vector3(-10.4f, 1.15f, 6.75f), new Vector3(1.7f, 2.3f, 0.16f), beamMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Key Table", new Vector3(-7.4f, 0.45f, 5.2f), new Vector3(1.5f, 0.9f, 1.1f), beamMaterial));
+        CreateBlock(room.transform, "Bunk Frame Lower", new Vector3(-10.4f, 0.55f, 8.4f), new Vector3(1.7f, 0.24f, 3.4f), beamMaterial);
+        CreateBlock(room.transform, "Bunk Frame Upper", new Vector3(-10.4f, 1.75f, 8.4f), new Vector3(1.7f, 0.24f, 3.4f), beamMaterial);
+        CreateBlock(room.transform, "Bunk Frame Posts", new Vector3(-10.4f, 1.15f, 6.75f), new Vector3(1.7f, 2.3f, 0.16f), beamMaterial);
+        CreateBlock(room.transform, "Key Table", new Vector3(-7.4f, 0.45f, 5.2f), new Vector3(1.5f, 0.9f, 1.1f), beamMaterial);
     }
 
     /// <summary>
@@ -666,12 +662,12 @@ public static class SetupSummerOf94
             10f,
             wallMaterial,
             beamMaterial);
-        MarkNavigationStatic(CreateBlock(room.transform, "Office Near Wall", new Vector3(6.92f, 2f, 6.5f), new Vector3(7.5f, WallHeight, WallThickness), wallMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Office Far Wall", new Vector3(6.92f, 2f, 13.5f), new Vector3(7.5f, WallHeight, WallThickness), wallMaterial));
+        CreateBlock(room.transform, "Office Near Wall", new Vector3(6.92f, 2f, 6.5f), new Vector3(7.5f, WallHeight, WallThickness), wallMaterial);
+        CreateBlock(room.transform, "Office Far Wall", new Vector3(6.92f, 2f, 13.5f), new Vector3(7.5f, WallHeight, WallThickness), wallMaterial);
         CreateBlock(room.transform, "Office Ceiling", new Vector3(6.92f, 4.05f, 10f), new Vector3(7.5f, 0.25f, 7.35f), beamMaterial);
 
-        MarkNavigationStatic(CreateBlock(room.transform, "Office Desk", new Vector3(8.8f, 0.5f, 12.2f), new Vector3(2.6f, 1f, 1.3f), beamMaterial));
-        MarkNavigationStatic(CreateBlock(room.transform, "Filing Cabinet", new Vector3(9.9f, 0.85f, 7.8f), new Vector3(1f, 1.7f, 0.7f), beamMaterial));
+        CreateBlock(room.transform, "Office Desk", new Vector3(8.8f, 0.5f, 12.2f), new Vector3(2.6f, 1f, 1.3f), beamMaterial);
+        CreateBlock(room.transform, "Filing Cabinet", new Vector3(9.9f, 0.85f, 7.8f), new Vector3(1f, 1.7f, 0.7f), beamMaterial);
 
         return backDoorway;
     }
@@ -799,22 +795,22 @@ public static class SetupSummerOf94
 
         if (firstLength > 0.01f)
         {
-            MarkNavigationStatic(CreateBlock(
+            CreateBlock(
                 parent,
                 $"{wallName} Segment A",
                 SegmentCenter(center, alongZ, start + firstLength * 0.5f),
                 SegmentSize(alongZ, firstLength, WallHeight),
-                wallMaterial));
+                wallMaterial);
         }
 
         if (secondLength > 0.01f)
         {
-            MarkNavigationStatic(CreateBlock(
+            CreateBlock(
                 parent,
                 $"{wallName} Segment B",
                 SegmentCenter(center, alongZ, doorEnd + secondLength * 0.5f),
                 SegmentSize(alongZ, secondLength, WallHeight),
-                wallMaterial));
+                wallMaterial);
         }
 
         float headerHeight = WallHeight - DoorwayHeight;
@@ -822,12 +818,12 @@ public static class SetupSummerOf94
         {
             Vector3 headerCenter = SegmentCenter(center, alongZ, doorwayCenterOnAxis);
             headerCenter.y = DoorwayHeight + headerHeight * 0.5f;
-            MarkNavigationStatic(CreateBlock(
+            CreateBlock(
                 parent,
                 $"{wallName} Door Header",
                 headerCenter,
                 SegmentSize(alongZ, DoorwayWidth, headerHeight),
-                beamMaterial));
+                beamMaterial);
         }
 
         Vector3 doorwayCenter = SegmentCenter(center, alongZ, doorwayCenterOnAxis);
@@ -918,10 +914,10 @@ public static class SetupSummerOf94
             surface = environment.AddComponent<NavMeshSurface>();
         }
 
-        // NavMeshSurface collects by collider, not by the legacy Navigation Static flags. Those
-        // flags are still set on all geometry so a manual Window > AI > Navigation bake also works.
+        // Geometry is gathered from physics colliders across the whole scene. The legacy
+        // NavigationStatic flags are gone in Unity 6, and NavMeshSurface never used them.
         surface.collectObjects = CollectObjects.All;
-        surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+        surface.useGeometry = UnityEngine.AI.NavMeshCollectGeometry.PhysicsColliders;
         surface.layerMask = ~0;
         surface.defaultArea = 0;
 
@@ -940,19 +936,6 @@ public static class SetupSummerOf94
         {
             environment.AddComponent<NavMeshBaker>();
         }
-    }
-
-    /// <summary>Flags generated geometry so a NavMesh bake picks it up in Step 5.</summary>
-    private static GameObject MarkNavigationStatic(GameObject target)
-    {
-        if (target == null)
-        {
-            return null;
-        }
-
-        StaticEditorFlags flags = GameObjectUtility.GetStaticEditorFlags(target);
-        GameObjectUtility.SetStaticEditorFlags(target, flags | StaticEditorFlags.NavigationStatic);
-        return target;
     }
 
     private static GameObject CreateBlock(Transform parent, string objectName, Vector3 position, Vector3 size, Material material)
