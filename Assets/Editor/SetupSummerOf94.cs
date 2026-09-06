@@ -74,6 +74,7 @@ public static class SetupSummerOf94
         GameObject player = CreatePlayer(playerMaterial);
         CreateFlashlight(player.transform.Find("Main Camera"));
         CreateCarIntro(environment.transform, player, wallMaterial, beamMaterial);
+        CreateChildSpirits(environment.transform);
 
         Selection.activeGameObject = player;
         EditorSceneManager.MarkSceneDirty(scene);
@@ -93,7 +94,11 @@ public static class SetupSummerOf94
             "The Summer of '94",
             "Sandbox built successfully.\n\nOpen the saved scene and press Play.\n\n" +
             "WASD: move  |  Mouse: look\nF: flashlight  |  Esc: unlock cursor\n" +
-            "E: radio, ignition, doors, and pickups\n\n" +
+            "E: radio, ignition, doors, and pickups\n" +
+            "Hold Right Mouse: close your eyes (slow, but sanity holds)\n\n" +
+            "Take the radio off the dashboard with E to carry it: its static\n" +
+            "clicks faster as a child spirit gets near. Hold the flashlight\n" +
+            "beam on a spirit to banish it.\n\n" +
             "The engine stalls, then step out and head for the cabin doorway.\n" +
             "The entrance slams shut behind you in the foyer.\n" +
             "The office door needs the key from the bunk room table.\n\n" +
@@ -231,6 +236,7 @@ public static class SetupSummerOf94
 
         SetSerializedReference(playerInteraction, "playerCamera", player.transform.Find("Main Camera"));
         SetSerializedReference(engineVibration, "targetCamera", player.transform.Find("Main Camera"));
+        SetSerializedReference(engineVibration, "cameraShake", player.GetComponent<CameraShake>());
         SetSerializedReference(carController, "playerController", player.GetComponent<FirstPersonController>());
         SetSerializedReference(carController, "playerSeat", playerSeat.transform);
         SetSerializedReference(carController, "playerCamera", player.transform.Find("Main Camera"));
@@ -244,6 +250,84 @@ public static class SetupSummerOf94
         SetSerializedReference(radioStatic, "radioAudioSource", radio.GetComponent<AudioSource>());
         SetSerializedReference(ignition.AddComponent<IgnitionKey>(), "breakdownSequence", breakdownSequence);
         carController.PlacePlayerInSeat();
+    }
+
+    /// <summary>
+    /// Places the child spirits: one in the corridor, one among the bunks, one at the dark far
+    /// end. Each starts fully transparent and fades itself in when the player is close and the
+    /// area is unlit.
+    /// </summary>
+    private static void CreateChildSpirits(Transform parent)
+    {
+        Material spiritMaterial = CreateSpiritMaterial();
+
+        GameObject spiritRoot = new GameObject("Child Spirits");
+        spiritRoot.transform.SetParent(parent);
+
+        CreateChildSpirit(spiritRoot.transform, "Child Spirit (Corridor)", new Vector3(0.4f, 0f, 2.6f), spiritMaterial, 11f);
+        CreateChildSpirit(spiritRoot.transform, "Child Spirit (Bunk Room)", new Vector3(-9.2f, 0f, 8.4f), spiritMaterial, 9f);
+        CreateChildSpirit(spiritRoot.transform, "Child Spirit (Far Corridor)", new Vector3(1.5f, 0f, 14.6f), spiritMaterial, 12f);
+    }
+
+    private static void CreateChildSpirit(Transform parent, string spiritName, Vector3 position, Material spiritMaterial, float triggerRadius)
+    {
+        GameObject spirit = new GameObject(spiritName);
+        spirit.transform.SetParent(parent);
+        spirit.transform.position = position;
+
+        GameObject silhouette = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        silhouette.name = "Silhouette";
+        silhouette.transform.SetParent(spirit.transform);
+        silhouette.transform.localPosition = new Vector3(0f, 0.62f, 0f);
+        silhouette.transform.localScale = new Vector3(0.42f, 0.62f, 0.42f);
+        silhouette.GetComponent<Renderer>().sharedMaterial = spiritMaterial;
+
+        // No collider: the spirit is intangible, and the flashlight test wants a clear line
+        // of sight that only real geometry can block.
+        Object.DestroyImmediate(silhouette.GetComponent<Collider>());
+
+        GameObject glowObject = new GameObject("Spirit Glow");
+        glowObject.transform.SetParent(spirit.transform);
+        glowObject.transform.localPosition = new Vector3(0f, 0.95f, 0f);
+        Light glow = glowObject.AddComponent<Light>();
+        glow.type = LightType.Point;
+        glow.color = new Color(0.55f, 0.72f, 0.95f);
+        glow.intensity = 0f;
+        glow.range = 3.4f;
+        glow.shadows = LightShadows.None;
+        glow.enabled = false;
+
+        spirit.AddComponent<AudioSource>();
+        ChildSpirit childSpirit = spirit.AddComponent<ChildSpirit>();
+        SetSerializedReference(childSpirit, "spiritRenderer", silhouette.GetComponent<Renderer>());
+        SetSerializedReference(childSpirit, "spiritGlow", glow);
+        SetSerializedFloat(childSpirit, "triggerRadius", triggerRadius);
+    }
+
+    /// <summary>Transparent, unlit-looking material for the spirit silhouettes.</summary>
+    private static Material CreateSpiritMaterial()
+    {
+        Material spirit = CreateMaterial(
+            "SummerOf94_Spirit_Material",
+            new Color(0.62f, 0.74f, 0.88f, 0f),
+            0f,
+            0.1f);
+
+        if (spirit.HasProperty("_Surface")) spirit.SetFloat("_Surface", 1f);   // Transparent.
+        if (spirit.HasProperty("_Blend")) spirit.SetFloat("_Blend", 0f);       // Alpha blend.
+        if (spirit.HasProperty("_AlphaClip")) spirit.SetFloat("_AlphaClip", 0f);
+        if (spirit.HasProperty("_ZWrite")) spirit.SetFloat("_ZWrite", 0f);
+        if (spirit.HasProperty("_BaseColor")) spirit.SetColor("_BaseColor", new Color(0.62f, 0.74f, 0.88f, 0f));
+        if (spirit.HasProperty("_EmissionColor"))
+        {
+            spirit.EnableKeyword("_EMISSION");
+            spirit.SetColor("_EmissionColor", new Color(0.16f, 0.22f, 0.3f));
+        }
+
+        spirit.SetShaderPassEnabled("ShadowCaster", false);
+        spirit.renderQueue = 3050;
+        EditorUtility.SetDirty(spirit);
+        return spirit;
     }
 
     private static Material CreateGlassMaterial()
@@ -636,6 +720,13 @@ public static class SetupSummerOf94
         player.AddComponent<VoidRespawn>();
         player.AddComponent<PlayerInventory>();
 
+        // Step 4 systems. CameraShake must exist first: it is the only component allowed to
+        // write the camera transform, and the others feed named shake sources into it.
+        player.AddComponent<CameraShake>();
+        player.AddComponent<ScreenOverlayController>();
+        player.AddComponent<SanitySystem>();
+        player.AddComponent<EyeCloseMechanic>();
+
         GameObject visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
         visual.name = "Player Capsule Visual";
         visual.transform.SetParent(player.transform);
@@ -661,6 +752,14 @@ public static class SetupSummerOf94
         cameraObject.AddComponent<AudioListener>();
 
         SetSerializedReference(controller, "cameraTransform", cameraObject.transform);
+        SetSerializedReference(player.GetComponent<CameraShake>(), "targetCamera", cameraObject.transform);
+        SetSerializedReference(player.GetComponent<SanitySystem>(), "headTransform", cameraObject.transform);
+        SetSerializedReference(player.GetComponent<SanitySystem>(), "cameraShake", player.GetComponent<CameraShake>());
+        SetSerializedReference(player.GetComponent<SanitySystem>(), "screenOverlay", player.GetComponent<ScreenOverlayController>());
+        SetSerializedReference(player.GetComponent<EyeCloseMechanic>(), "playerController", controller);
+        SetSerializedReference(player.GetComponent<EyeCloseMechanic>(), "sanitySystem", player.GetComponent<SanitySystem>());
+        SetSerializedReference(player.GetComponent<EyeCloseMechanic>(), "screenOverlay", player.GetComponent<ScreenOverlayController>());
+        SetSerializedReference(player.GetComponent<EyeCloseMechanic>(), "cameraShake", player.GetComponent<CameraShake>());
         return player;
     }
 
@@ -764,6 +863,20 @@ public static class SetupSummerOf94
         }
 
         property.objectReferenceValue = value;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static void SetSerializedFloat(Component component, string propertyName, float value)
+    {
+        SerializedObject serializedObject = new SerializedObject(component);
+        SerializedProperty property = serializedObject.FindProperty(propertyName);
+        if (property == null)
+        {
+            Debug.LogWarning($"Could not find serialized field '{propertyName}' on {component.GetType().Name}.");
+            return;
+        }
+
+        property.floatValue = value;
         serializedObject.ApplyModifiedPropertiesWithoutUndo();
     }
 

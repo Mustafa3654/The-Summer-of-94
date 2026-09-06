@@ -8,7 +8,9 @@ public sealed class PlayerInteraction : MonoBehaviour
 {
     [SerializeField] private Camera playerCamera;
     [SerializeField] private float interactionDistance = 3f;
-    [SerializeField] private LayerMask interactionMask = ~0;
+    // Everything except the built-in Ignore Raycast layer, so a carried prop such as the
+    // transistor radio never intercepts interaction rays.
+    [SerializeField] private LayerMask interactionMask = ~(1 << 2);
 
     private void Awake()
     {

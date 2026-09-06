@@ -27,6 +27,7 @@ public sealed class FirstPersonController : MonoBehaviour
     private float pitch;
     private bool cursorLocked;
     private bool movementLocked;
+    private float moveSpeedMultiplier = 1f;
 
     public bool MovementLocked => movementLocked;
 
@@ -104,7 +105,7 @@ public sealed class FirstPersonController : MonoBehaviour
         Vector2 input = ReadMovementInput();
         Vector3 desiredDirection = (transform.right * input.x + transform.forward * input.y);
         desiredDirection = Vector3.ClampMagnitude(desiredDirection, 1f);
-        Vector3 desiredVelocity = desiredDirection * moveSpeed;
+        Vector3 desiredVelocity = desiredDirection * (moveSpeed * moveSpeedMultiplier);
 
         planarVelocity = Vector3.SmoothDamp(
             planarVelocity,
@@ -125,6 +126,15 @@ public sealed class FirstPersonController : MonoBehaviour
     public void ResetVerticalVelocity()
     {
         verticalVelocity = 0f;
+    }
+
+    /// <summary>
+    /// Scales walking speed. Used by <see cref="EyeCloseMechanic"/> to slow the player to a
+    /// shuffle while their eyes are shut.
+    /// </summary>
+    public void SetMoveSpeedMultiplier(float multiplier)
+    {
+        moveSpeedMultiplier = Mathf.Clamp(multiplier, 0f, 4f);
     }
 
     public void SetMovementLocked(bool locked)

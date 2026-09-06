@@ -28,6 +28,9 @@ public sealed class Flashlight : MonoBehaviour
 
     public bool IsOn => isOn;
 
+    /// <summary>The spot light itself, so spirits can test whether the beam is on them.</summary>
+    public Light Beam => flashlightLight;
+
     private void Awake()
     {
         if (flashlightLight == null)

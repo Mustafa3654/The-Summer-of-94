@@ -77,6 +77,85 @@ public static class ProceduralAudio
         });
     }
 
+    /// <summary>Looping panicked breathing. Volume is driven by the sanity system.</summary>
+    public static AudioClip CreateBreathing(string clipName = "Procedural Breathing", float duration = 4.4f, int seed = 2211)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            // Two breaths per loop: a sharper inhale followed by a longer exhale.
+            float cycle = Mathf.Repeat(time / (duration * 0.5f), 1f);
+            float inhale = Mathf.Pow(Mathf.Clamp01(Mathf.Sin(cycle * Mathf.PI * 2f)), 2f);
+            float exhale = Mathf.Pow(Mathf.Clamp01(-Mathf.Sin(cycle * Mathf.PI * 2f)), 1.4f);
+            float breathEnvelope = inhale * 0.9f + exhale * 0.65f;
+
+            float air = (float)(random.NextDouble() * 2.0 - 1.0);
+            float throat = Mathf.Sin(time * Mathf.PI * 2f * 96f) * 0.16f;
+            return (air * 0.42f + throat) * breathEnvelope * 0.5f;
+        });
+    }
+
+    /// <summary>Looping two-thump heartbeat, one beat per loop so playback speed sets the BPM.</summary>
+    public static AudioClip CreateHeartbeat(string clipName = "Procedural Heartbeat", float duration = 1f, int seed = 808)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float lub = Thump(time, 0.02f, 54f, 15f);
+            float dub = Thump(time, 0.29f, 44f, 17f) * 0.72f;
+            return (lub + dub) * 0.9f;
+        });
+    }
+
+    /// <summary>Short, distant child laugh built from pitched syllables.</summary>
+    public static AudioClip CreateChildLaugh(string clipName = "Procedural Child Laugh", float duration = 1.9f, int seed = 4499)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float fade = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
+            float syllable = Mathf.Pow(Mathf.Abs(Mathf.Sin(time * Mathf.PI * 4.4f)), 3.5f);
+            float pitch = 430f + Mathf.Sin(time * 5.5f) * 70f - progress * 60f;
+            float voice = Mathf.Sin(time * Mathf.PI * 2f * pitch) * 0.34f;
+            voice += Mathf.Sin(time * Mathf.PI * 2f * pitch * 2f) * 0.12f;
+            float breath = (float)(random.NextDouble() * 2.0 - 1.0) * 0.06f;
+            return (voice * syllable + breath * syllable) * fade * 0.55f;
+        });
+    }
+
+    /// <summary>Unintelligible whispering: noise shaped into syllables with a faint pitch.</summary>
+    public static AudioClip CreateWhisper(string clipName = "Procedural Whisper", float duration = 2.6f, int seed = 1717)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float fade = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
+            float syllable = Mathf.Pow(Mathf.Abs(Mathf.Sin(time * Mathf.PI * 2.9f)), 2.2f);
+            float breathNoise = (float)(random.NextDouble() * 2.0 - 1.0);
+            float formant = Mathf.Sin(time * Mathf.PI * 2f * 210f) * 0.09f;
+            return (breathNoise * 0.3f + formant) * syllable * fade * 0.6f;
+        });
+    }
+
+    /// <summary>Single dry click for the radio spirit detector.</summary>
+    public static AudioClip CreateGeigerClick(string clipName = "Procedural Detector Click", float duration = 0.08f, int seed = 3333)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float envelope = Mathf.Exp(-progress * 42f);
+            float click = (float)(random.NextDouble() * 2.0 - 1.0) * 0.7f;
+            float tone = Mathf.Sin(time * Mathf.PI * 2f * 2400f) * 0.3f;
+            return (click + tone) * envelope;
+        });
+    }
+
+    private static float Thump(float time, float startTime, float frequency, float decay)
+    {
+        if (time < startTime)
+        {
+            return 0f;
+        }
+
+        float local = time - startTime;
+        return Mathf.Sin(local * Mathf.PI * 2f * frequency) * Mathf.Exp(-local * decay);
+    }
+
     private delegate float SampleGenerator(float time, float progress, System.Random random);
 
     private static AudioClip Build(string clipName, float duration, int seed, SampleGenerator generator)
