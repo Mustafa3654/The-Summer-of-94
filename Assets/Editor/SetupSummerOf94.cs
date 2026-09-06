@@ -1,3 +1,4 @@
+using Unity.AI.Navigation;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -75,6 +76,8 @@ public static class SetupSummerOf94
         CreateFlashlight(player.transform.Find("Main Camera"));
         CreateCarIntro(environment.transform, player, wallMaterial, beamMaterial);
         CreateChildSpirits(environment.transform);
+        CreateCampYardAndEscape(environment.transform, beamMaterial);
+        CreateNavigationSurface(environment);
 
         Selection.activeGameObject = player;
         EditorSceneManager.MarkSceneDirty(scene);
@@ -96,14 +99,18 @@ public static class SetupSummerOf94
             "WASD: move  |  Mouse: look\nF: flashlight  |  Esc: unlock cursor\n" +
             "E: radio, ignition, doors, and pickups\n" +
             "Hold Right Mouse: close your eyes (slow, but sanity holds)\n\n" +
+            "Shift: sprint (loud - the Teacher hears it)\n\n" +
             "Take the radio off the dashboard with E to carry it: its static\n" +
             "clicks faster as a child spirit gets near. Hold the flashlight\n" +
             "beam on a spirit to banish it.\n\n" +
+            "Escape route: office key on the bunk room table, unlock the camp\n" +
+            "office, take the fuel can, out the office back door, fuel the yard\n" +
+            "generator, then run for the gate before the Teacher reaches you.\n\n" +
             "The engine stalls, then step out and head for the cabin doorway.\n" +
             "The entrance slams shut behind you in the foyer.\n" +
             "The office door needs the key from the bunk room table.\n\n" +
-            "All floors and walls are flagged Navigation Static, so\n" +
-            "Window > AI > Navigation can bake a NavMesh for Step 5.",
+            "The NavMesh is baked automatically on Play by the NavMeshSurface\n" +
+            "on the Environment object, so the Teacher works with no manual bake.",
             "OK");
     }
 
@@ -250,6 +257,200 @@ public static class SetupSummerOf94
         SetSerializedReference(radioStatic, "radioAudioSource", radio.GetComponent<AudioSource>());
         SetSerializedReference(ignition.AddComponent<IgnitionKey>(), "breakdownSequence", breakdownSequence);
         carController.PlacePlayerInSeat();
+    }
+
+    /// <summary>
+    /// Builds the escape objective out in the yard: the generator, the floodlight poles it
+    /// powers, the fence, and the sliding exit gate with its escape trigger.
+    /// </summary>
+    private static void CreateCampYardAndEscape(Transform parent, Material beamMaterial)
+    {
+        Material metalMaterial = CreateMaterial(
+            "SummerOf94_Metal_Material",
+            new Color(0.09f, 0.095f, 0.1f),
+            0.65f,
+            0.42f);
+        Material fuelMaterial = CreateMaterial(
+            "SummerOf94_Fuel_Material",
+            new Color(0.32f, 0.12f, 0.06f),
+            0.2f,
+            0.35f);
+
+        GameObject yard = new GameObject("Camp Yard");
+        yard.transform.SetParent(parent);
+
+        // Perimeter fence with a gap for the gate.
+        MarkNavigationStatic(CreateBlock(yard.transform, "Fence West", new Vector3(-11.5f, 1.5f, -22f), new Vector3(17f, 3f, 0.3f), metalMaterial));
+        MarkNavigationStatic(CreateBlock(yard.transform, "Fence East", new Vector3(11.5f, 1.5f, -22f), new Vector3(17f, 3f, 0.3f), metalMaterial));
+        MarkNavigationStatic(CreateBlock(yard.transform, "Gate Post West", new Vector3(-3.2f, 1.8f, -22f), new Vector3(0.5f, 3.6f, 0.5f), beamMaterial));
+        MarkNavigationStatic(CreateBlock(yard.transform, "Gate Post East", new Vector3(3.2f, 1.8f, -22f), new Vector3(0.5f, 3.6f, 0.5f), beamMaterial));
+
+        // Gate: the trigger collider lives on the same object as the component, so
+        // OnTriggerEnter actually reaches CampExitGate.
+        GameObject gate = new GameObject("Camp Exit Gate");
+        gate.transform.SetParent(yard.transform);
+        gate.transform.position = new Vector3(0f, 0f, -22f);
+
+        GameObject leftHalf = CreateBlock(gate.transform, "Gate Half West", new Vector3(-1.55f, 1.5f, 0f), new Vector3(3.1f, 3f, 0.22f), metalMaterial);
+        GameObject rightHalf = CreateBlock(gate.transform, "Gate Half East", new Vector3(1.55f, 1.5f, 0f), new Vector3(3.1f, 3f, 0.22f), metalMaterial);
+        MarkNavigationStatic(leftHalf);
+        MarkNavigationStatic(rightHalf);
+
+        BoxCollider escapeTrigger = gate.AddComponent<BoxCollider>();
+        escapeTrigger.isTrigger = true;
+        escapeTrigger.center = new Vector3(0f, 1.4f, -1.6f);
+        escapeTrigger.size = new Vector3(6f, 2.8f, 1.6f);
+
+        gate.AddComponent<AudioSource>();
+        CampExitGate exitGate = gate.AddComponent<CampExitGate>();
+        SetSerializedReference(exitGate, "leftGate", leftHalf.transform);
+        SetSerializedReference(exitGate, "rightGate", rightHalf.transform);
+        SetSerializedReference(exitGate, "escapeTrigger", escapeTrigger);
+
+        // Floodlights, dark until the generator runs.
+        Light[] floodlights = new Light[2];
+        floodlights[0] = CreateFloodlight(yard.transform, "Floodlight West", new Vector3(-7.5f, 0f, -16f), beamMaterial);
+        floodlights[1] = CreateFloodlight(yard.transform, "Floodlight East", new Vector3(7.5f, 0f, -16f), beamMaterial);
+
+        // The generator itself.
+        GameObject generator = CreateBlock(yard.transform, "Camp Power Generator", new Vector3(8.5f, 0.6f, -13f), new Vector3(1.9f, 1.2f, 1.2f), metalMaterial);
+        MarkNavigationStatic(generator);
+        MarkNavigationStatic(CreateBlock(yard.transform, "Generator Exhaust Stack", new Vector3(8.9f, 1.55f, -13f), new Vector3(0.16f, 0.8f, 0.16f), metalMaterial));
+
+        generator.AddComponent<AudioSource>();
+        PowerGenerator powerGenerator = generator.AddComponent<PowerGenerator>();
+        SetSerializedReference(powerGenerator, "exitGate", exitGate);
+        SetSerializedObjectArray(powerGenerator, "floodlights", floodlights);
+
+        // Fuel can, waiting on the office desk behind the locked door.
+        GameObject fuelCan = CreateBlock(parent, "Fuel Canister", new Vector3(8.8f, 1.22f, 12.2f), new Vector3(0.34f, 0.44f, 0.22f), fuelMaterial);
+        BoxCollider fuelCollider = fuelCan.GetComponent<BoxCollider>();
+        fuelCollider.size = new Vector3(1.6f, 1.4f, 2.2f); // Roomier grab volume than the mesh.
+        fuelCan.AddComponent<FuelCanister>();
+
+        GameObject teacher = CreateTeacher(parent, metalMaterial);
+        SetSerializedReference(powerGenerator, "teacher", teacher.GetComponent<TeacherAI>());
+    }
+
+    private static Light CreateFloodlight(Transform parent, string lightName, Vector3 basePosition, Material poleMaterial)
+    {
+        MarkNavigationStatic(CreateBlock(parent, $"{lightName} Pole", basePosition + new Vector3(0f, 2.6f, 0f), new Vector3(0.22f, 5.2f, 0.22f), poleMaterial));
+
+        GameObject lightObject = new GameObject(lightName);
+        lightObject.transform.SetParent(parent);
+        lightObject.transform.position = basePosition + new Vector3(0f, 5f, 0f);
+        lightObject.transform.rotation = Quaternion.Euler(62f, basePosition.x > 0f ? -140f : 140f, 0f);
+
+        Light floodlight = lightObject.AddComponent<Light>();
+        floodlight.type = LightType.Spot;
+        floodlight.color = new Color(0.94f, 0.88f, 0.72f);
+        floodlight.intensity = 0f;
+        floodlight.range = 34f;
+        floodlight.spotAngle = 78f;
+        floodlight.innerSpotAngle = 44f;
+        floodlight.shadows = LightShadows.Soft;
+        floodlight.enabled = false;
+        return floodlight;
+    }
+
+    /// <summary>
+    /// The Teacher: a NavMeshAgent body with the distorted mascot head, plus the patrol route
+    /// that links the cabin and the yard.
+    /// </summary>
+    private static GameObject CreateTeacher(Transform parent, Material bodyMaterial)
+    {
+        Material mascotMaterial = CreateMaterial(
+            "SummerOf94_Mascot_Material",
+            new Color(0.28f, 0.24f, 0.16f),
+            0f,
+            0.18f);
+
+        GameObject teacher = new GameObject("The Teacher");
+        teacher.transform.SetParent(parent);
+        teacher.transform.position = new Vector3(0.5f, 0f, 15f);
+
+        GameObject body = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+        body.name = "Body";
+        body.transform.SetParent(teacher.transform);
+        body.transform.localPosition = new Vector3(0f, 1.05f, 0f);
+        body.transform.localScale = new Vector3(0.72f, 1.05f, 0.72f);
+        body.GetComponent<Renderer>().sharedMaterial = bodyMaterial;
+        Object.DestroyImmediate(body.GetComponent<Collider>());
+
+        // The distorted mascot head: an oversized cube skull with two stub ears.
+        GameObject head = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        head.name = "Mascot Head";
+        head.transform.SetParent(teacher.transform);
+        head.transform.localPosition = new Vector3(0f, 2.16f, 0.06f);
+        head.transform.localRotation = Quaternion.Euler(0f, 0f, 7f); // Sits crooked on the shoulders.
+        head.transform.localScale = new Vector3(0.86f, 0.8f, 0.8f);
+        head.GetComponent<Renderer>().sharedMaterial = mascotMaterial;
+        Object.DestroyImmediate(head.GetComponent<Collider>());
+
+        foreach (float side in new[] { -1f, 1f })
+        {
+            GameObject ear = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            ear.name = side < 0f ? "Mascot Ear Left" : "Mascot Ear Right";
+            ear.transform.SetParent(head.transform);
+            ear.transform.localPosition = new Vector3(side * 0.52f, 0.46f, 0f);
+            ear.transform.localScale = new Vector3(0.5f, 0.55f, 0.5f);
+            ear.GetComponent<Renderer>().sharedMaterial = mascotMaterial;
+            Object.DestroyImmediate(ear.GetComponent<Collider>());
+        }
+
+        GameObject eyes = new GameObject("Eye Line");
+        eyes.transform.SetParent(teacher.transform);
+        eyes.transform.localPosition = new Vector3(0f, 2.16f, 0.4f);
+
+        CapsuleCollider bodyCollider = teacher.AddComponent<CapsuleCollider>();
+        bodyCollider.height = 2.2f;
+        bodyCollider.radius = 0.36f;
+        bodyCollider.center = new Vector3(0f, 1.1f, 0f);
+
+        UnityEngine.AI.NavMeshAgent agent = teacher.AddComponent<UnityEngine.AI.NavMeshAgent>();
+        agent.height = 2.2f;
+        agent.radius = 0.36f;
+        agent.baseOffset = 0f;
+        agent.speed = 1.5f;
+        agent.stoppingDistance = 0.4f;
+        agent.autoBraking = false;
+
+        teacher.AddComponent<AudioSource>();
+        TeacherAI teacherAI = teacher.AddComponent<TeacherAI>();
+        SetSerializedReference(teacherAI, "eyeTransform", eyes.transform);
+
+        // Patrol route: far corridor, mid corridor, bunk room, foyer, yard, generator.
+        GameObject waypointRoot = new GameObject("Teacher Patrol Waypoints");
+        waypointRoot.transform.SetParent(parent);
+
+        Vector3[] waypointPositions =
+        {
+            new Vector3(0f, 0f, 14.5f),
+            new Vector3(0f, 0f, 4f),
+            new Vector3(-8f, 0f, 6.5f),
+            new Vector3(0f, 0f, -6.5f),
+            new Vector3(-6f, 0f, -14f),
+            new Vector3(7.5f, 0f, -15.5f)
+        };
+
+        Object[] waypoints = new Object[waypointPositions.Length];
+        for (int i = 0; i < waypointPositions.Length; i++)
+        {
+            GameObject waypoint = new GameObject($"Waypoint {i + 1}");
+            waypoint.transform.SetParent(waypointRoot.transform);
+            waypoint.transform.position = waypointPositions[i];
+            waypoints[i] = waypoint.transform;
+        }
+
+        SetSerializedObjectArray(teacherAI, "patrolWaypoints", waypoints);
+
+        // Where the player is dropped after a kill: back inside the cabin foyer.
+        GameObject respawnPoint = new GameObject("Player Respawn After Kill");
+        respawnPoint.transform.SetParent(parent);
+        respawnPoint.transform.position = new Vector3(0f, 0.1f, -7.6f);
+        SetSerializedReference(teacherAI, "playerRespawnPoint", respawnPoint.transform);
+
+        return teacher;
     }
 
     /// <summary>
@@ -424,8 +625,8 @@ public static class SetupSummerOf94
         }
 
         CreateBunkRoom(parent, wallMaterial, beamMaterial);
-        CreateCampOffice(parent, wallMaterial, beamMaterial);
-        CreateDoorsAndKeys(parent, entranceDoorway, bunkRoomDoorway, officeDoorway, wallMaterial, beamMaterial);
+        Vector3 officeBackDoorway = CreateCampOffice(parent, wallMaterial, beamMaterial);
+        CreateDoorsAndKeys(parent, entranceDoorway, bunkRoomDoorway, officeDoorway, officeBackDoorway, wallMaterial, beamMaterial);
     }
 
     /// <summary>Open side room off the corridor. The office key sits on the table inside.</summary>
@@ -446,19 +647,33 @@ public static class SetupSummerOf94
         MarkNavigationStatic(CreateBlock(room.transform, "Key Table", new Vector3(-7.4f, 0.45f, 5.2f), new Vector3(1.5f, 0.9f, 1.1f), beamMaterial));
     }
 
-    /// <summary>Locked room behind the office door. Nothing in it yet beyond set dressing.</summary>
-    private static void CreateCampOffice(Transform parent, Material wallMaterial, Material beamMaterial)
+    /// <summary>
+    /// The locked office. It holds the fuel can, and its back door is the only way out of the
+    /// cabin once the entrance has slammed shut, so the escape route runs through here.
+    /// Returns the world position of that back doorway.
+    /// </summary>
+    private static Vector3 CreateCampOffice(Transform parent, Material wallMaterial, Material beamMaterial)
     {
         GameObject room = new GameObject("Camp Office");
         room.transform.SetParent(parent);
 
-        MarkNavigationStatic(CreateBlock(room.transform, "Office Outer Wall", new Vector3(10.5f, 2f, 10f), new Vector3(WallThickness, WallHeight, 7.35f), wallMaterial));
+        Vector3 backDoorway = CreateWallWithDoorway(
+            room.transform,
+            "Office Outer Wall",
+            new Vector3(10.5f, WallHeight * 0.5f, 10f),
+            7.35f,
+            true,
+            10f,
+            wallMaterial,
+            beamMaterial);
         MarkNavigationStatic(CreateBlock(room.transform, "Office Near Wall", new Vector3(6.92f, 2f, 6.5f), new Vector3(7.5f, WallHeight, WallThickness), wallMaterial));
         MarkNavigationStatic(CreateBlock(room.transform, "Office Far Wall", new Vector3(6.92f, 2f, 13.5f), new Vector3(7.5f, WallHeight, WallThickness), wallMaterial));
         CreateBlock(room.transform, "Office Ceiling", new Vector3(6.92f, 4.05f, 10f), new Vector3(7.5f, 0.25f, 7.35f), beamMaterial);
 
         MarkNavigationStatic(CreateBlock(room.transform, "Office Desk", new Vector3(8.8f, 0.5f, 12.2f), new Vector3(2.6f, 1f, 1.3f), beamMaterial));
         MarkNavigationStatic(CreateBlock(room.transform, "Filing Cabinet", new Vector3(9.9f, 0.85f, 7.8f), new Vector3(1f, 1.7f, 0.7f), beamMaterial));
+
+        return backDoorway;
     }
 
     /// <summary>Places the three doors, the office key pickup and the foyer slam trigger.</summary>
@@ -467,6 +682,7 @@ public static class SetupSummerOf94
         Vector3 entranceDoorway,
         Vector3 bunkRoomDoorway,
         Vector3 officeDoorway,
+        Vector3 officeBackDoorway,
         Material wallMaterial,
         Material beamMaterial)
     {
@@ -509,6 +725,15 @@ public static class SetupSummerOf94
             false,
             doorMaterial);
         SetSerializedString(officeDoor, "requiredKeyId", "OfficeKey");
+
+        // The way out to the yard once the entrance has slammed shut.
+        CreateHingedDoor<Door>(
+            interactables.transform,
+            "Office Back Door",
+            officeBackDoorway,
+            true,
+            true,
+            doorMaterial);
 
         // The key that opens the office, resting on the bunk room table.
         GameObject key = GameObject.CreatePrimitive(PrimitiveType.Cube);
@@ -677,6 +902,44 @@ public static class SetupSummerOf94
 
         pivot.AddComponent<AudioSource>();
         return pivot.AddComponent<TDoor>();
+    }
+
+    /// <summary>
+    /// Adds the NavMeshSurface that covers the camp, plus the baker that builds it at runtime.
+    ///
+    /// Baking on Awake rather than saving a NavMesh asset keeps the generated scene fully
+    /// self-contained: rebuilding the sandbox never leaves a stale or missing bake behind.
+    /// </summary>
+    private static void CreateNavigationSurface(GameObject environment)
+    {
+        NavMeshSurface surface = environment.GetComponent<NavMeshSurface>();
+        if (surface == null)
+        {
+            surface = environment.AddComponent<NavMeshSurface>();
+        }
+
+        // NavMeshSurface collects by collider, not by the legacy Navigation Static flags. Those
+        // flags are still set on all geometry so a manual Window > AI > Navigation bake also works.
+        surface.collectObjects = CollectObjects.All;
+        surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+        surface.layerMask = ~0;
+        surface.defaultArea = 0;
+
+        SerializedObject serializedSurface = new SerializedObject(surface);
+        SerializedProperty voxelSizeProperty = serializedSurface.FindProperty("m_OverrideVoxelSize");
+        SerializedProperty voxelValueProperty = serializedSurface.FindProperty("m_VoxelSize");
+        if (voxelSizeProperty != null && voxelValueProperty != null)
+        {
+            // A coarser voxel keeps the runtime bake of the 100x100 ground quick.
+            voxelSizeProperty.boolValue = true;
+            voxelValueProperty.floatValue = 0.22f;
+            serializedSurface.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        if (environment.GetComponent<NavMeshBaker>() == null)
+        {
+            environment.AddComponent<NavMeshBaker>();
+        }
     }
 
     /// <summary>Flags generated geometry so a NavMesh bake picks it up in Step 5.</summary>

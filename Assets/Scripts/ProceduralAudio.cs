@@ -145,6 +145,73 @@ public static class ProceduralAudio
         });
     }
 
+    /// <summary>Distorted shriek for the Teacher's kill sting.</summary>
+    public static AudioClip CreateScream(string clipName = "Procedural Mascot Scream", float duration = 1.3f, int seed = 6661)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float envelope = Mathf.Exp(-progress * 2.2f) * Mathf.Min(1f, progress * 26f);
+            float pitch = 620f - progress * 240f;
+            float cry = Mathf.Sin(time * Mathf.PI * 2f * pitch);
+            cry += Mathf.Sin(time * Mathf.PI * 2f * pitch * 1.51f) * 0.6f;
+            float tear = (float)(random.NextDouble() * 2.0 - 1.0) * 0.45f;
+            // Hard clipping is what gives it the blown-speaker edge.
+            return Mathf.Clamp(cry * 0.7f + tear, -0.72f, 0.72f) * envelope * 1.25f;
+        });
+    }
+
+    /// <summary>Looping diesel generator rumble.</summary>
+    public static AudioClip CreateGeneratorLoop(string clipName = "Procedural Generator Loop", float duration = 2f, int seed = 5309)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float firing = Mathf.Pow(Mathf.Abs(Mathf.Sin(time * Mathf.PI * 13f)), 2.4f);
+            float rumble = Mathf.Sin(time * Mathf.PI * 2f * 47f) * 0.4f;
+            rumble += Mathf.Sin(time * Mathf.PI * 2f * 94f) * 0.18f;
+            float whine = Mathf.Sin(time * Mathf.PI * 2f * 310f) * 0.07f;
+            float grit = (float)(random.NextDouble() * 2.0 - 1.0) * 0.12f;
+            return (rumble * firing + whine + grit * firing) * 0.6f;
+        });
+    }
+
+    /// <summary>Heavy metal gate grinding open.</summary>
+    public static AudioClip CreateGateRumble(string clipName = "Procedural Gate Rumble", float duration = 3.2f, int seed = 4040)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float envelope = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
+            float grind = (float)(random.NextDouble() * 2.0 - 1.0) * 0.35f;
+            float chain = Mathf.Sin(time * Mathf.PI * 2f * 74f) * 0.28f;
+            float stutter = Mathf.Pow(Mathf.Abs(Mathf.Sin(time * Mathf.PI * 6.5f)), 3f);
+            return (grind * stutter + chain * 0.5f) * envelope * 0.75f;
+        });
+    }
+
+    /// <summary>Liquid slosh for lifting the fuel can.</summary>
+    public static AudioClip CreateFuelSlosh(string clipName = "Procedural Fuel Slosh", float duration = 1.1f, int seed = 2020)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float envelope = Mathf.Sin(Mathf.Clamp01(progress) * Mathf.PI);
+            float wave = Mathf.Sin(time * Mathf.PI * 2f * (3.2f + Mathf.Sin(time * 7f) * 1.4f));
+            float liquid = (float)(random.NextDouble() * 2.0 - 1.0) * 0.3f * Mathf.Abs(wave);
+            float can = Mathf.Sin(time * Mathf.PI * 2f * 190f) * 0.09f;
+            return (liquid + can) * envelope * 0.7f;
+        });
+    }
+
+    /// <summary>Heavy, slow footfall for the Teacher.</summary>
+    public static AudioClip CreateHeavyFootstep(string clipName = "Procedural Heavy Footstep", float duration = 0.5f, int seed = 9119)
+    {
+        return Build(clipName, duration, seed, (time, progress, random) =>
+        {
+            float envelope = Mathf.Exp(-progress * 13f);
+            float boot = Mathf.Sin(time * Mathf.PI * 2f * 78f) * 0.5f;
+            float scuff = (float)(random.NextDouble() * 2.0 - 1.0) * 0.32f;
+            return (boot + scuff) * envelope * 0.8f;
+        });
+    }
+
     private static float Thump(float time, float startTime, float frequency, float decay)
     {
         if (time < startTime)

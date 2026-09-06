@@ -23,6 +23,13 @@ public sealed class ChildSpirit : MonoBehaviour
 
     public static IReadOnlyList<ChildSpirit> Active => ActiveSpirits;
 
+    /// <summary>
+    /// Raised with the world position and carrying distance every time a spirit laughs or
+    /// whispers. This is the audio aggro link: the spirits reacting to the player are what
+    /// give the player away to the Teacher.
+    /// </summary>
+    public static event System.Action<Vector3, float> OnLaughter;
+
     [Header("Appearance")]
     [SerializeField] private Renderer spiritRenderer;
     [SerializeField, Range(0f, 1f)] private float presentAlpha = 0.38f;
@@ -55,6 +62,10 @@ public sealed class ChildSpirit : MonoBehaviour
     [Header("Fear")]
     [SerializeField] private float fearRadius = 7f;
     [SerializeField] private float sanityDrainPerSecond = 5.5f;
+
+    [Header("Audio Aggro Link")]
+    [SerializeField] private bool alertsTheTeacher = true;
+    [SerializeField] private float voiceCarryDistance = 26f;
 
     private SpiritState state = SpiritState.Dormant;
     private Transform playerTransform;
@@ -331,7 +342,17 @@ public sealed class ChildSpirit : MonoBehaviour
         }
 
         nextVoiceTime = Time.time + RandomInRange(voiceInterval);
-        PlayClip(Random.value > 0.45f ? laughClip : whisperClip, voiceVolume);
+
+        bool laughing = Random.value > 0.45f;
+        PlayClip(laughing ? laughClip : whisperClip, voiceVolume);
+
+        if (alertsTheTeacher)
+        {
+            // A laugh carries further than a whisper, and both give the player away.
+            float carry = voiceCarryDistance * (laughing ? 1f : 0.55f);
+            OnLaughter?.Invoke(transform.position, carry);
+            NoiseEvents.Emit(transform.position, carry);
+        }
     }
 
     private void PlayClip(AudioClip clip, float volume)

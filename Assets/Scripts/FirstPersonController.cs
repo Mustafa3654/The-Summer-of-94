@@ -10,9 +10,16 @@ public sealed class FirstPersonController : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 4.5f;
+    [SerializeField] private float sprintMultiplier = 1.75f;
     [SerializeField] private float movementSmoothing = 0.08f;
     [SerializeField] private float gravity = -20f;
     [SerializeField] private float groundedPull = -2f;
+
+    [Header("Noise")]
+    [SerializeField] private bool emitFootstepNoise = true;
+    [SerializeField] private float walkNoiseRadius = 4.5f;
+    [SerializeField] private float sprintNoiseRadius = 17f;
+    [SerializeField] private float noiseInterval = 0.45f;
 
     [Header("Look")]
     [SerializeField] private Transform cameraTransform;
@@ -28,8 +35,16 @@ public sealed class FirstPersonController : MonoBehaviour
     private bool cursorLocked;
     private bool movementLocked;
     private float moveSpeedMultiplier = 1f;
+    private bool sprinting;
+    private float nextNoiseTime;
 
     public bool MovementLocked => movementLocked;
+
+    /// <summary>True while the player is actually running, not merely holding shift.</summary>
+    public bool IsSprinting => sprinting;
+
+    /// <summary>Current planar speed in metres per second.</summary>
+    public float CurrentSpeed => planarVelocity.magnitude;
 
     private void Awake()
     {
@@ -105,7 +120,16 @@ public sealed class FirstPersonController : MonoBehaviour
         Vector2 input = ReadMovementInput();
         Vector3 desiredDirection = (transform.right * input.x + transform.forward * input.y);
         desiredDirection = Vector3.ClampMagnitude(desiredDirection, 1f);
-        Vector3 desiredVelocity = desiredDirection * (moveSpeed * moveSpeedMultiplier);
+
+        bool wantsToSprint = Keyboard.current != null
+            && Keyboard.current.leftShiftKey.isPressed
+            && input.sqrMagnitude > 0.04f;
+
+        // Sprinting is disallowed while the eyes are shut, which is what the speed penalty means.
+        sprinting = wantsToSprint && moveSpeedMultiplier > 0.9f;
+
+        float speed = moveSpeed * moveSpeedMultiplier * (sprinting ? sprintMultiplier : 1f);
+        Vector3 desiredVelocity = desiredDirection * speed;
 
         planarVelocity = Vector3.SmoothDamp(
             planarVelocity,
@@ -121,6 +145,34 @@ public sealed class FirstPersonController : MonoBehaviour
         verticalVelocity += gravity * Time.deltaTime;
         Vector3 motion = planarVelocity + Vector3.up * verticalVelocity;
         characterController.Move(motion * Time.deltaTime);
+
+        EmitFootstepNoise();
+    }
+
+    /// <summary>
+    /// Reports footsteps to <see cref="NoiseEvents"/>. Sprinting carries far enough to pull the
+    /// Teacher across the camp; walking barely registers.
+    /// </summary>
+    private void EmitFootstepNoise()
+    {
+        if (!emitFootstepNoise || Time.time < nextNoiseTime)
+        {
+            return;
+        }
+
+        float speed = planarVelocity.magnitude;
+        if (speed < 0.4f)
+        {
+            return;
+        }
+
+        nextNoiseTime = Time.time + noiseInterval;
+
+        float radius = sprinting
+            ? sprintNoiseRadius
+            : walkNoiseRadius * Mathf.Clamp01(speed / Mathf.Max(0.01f, moveSpeed));
+
+        NoiseEvents.Emit(transform.position, radius);
     }
 
     public void ResetVerticalVelocity()
