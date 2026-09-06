@@ -205,7 +205,7 @@ public sealed class SanitySystem : MonoBehaviour
         if (Time.time >= nextLightSampleTime)
         {
             nextLightSampleTime = Time.time + lightSampleInterval;
-            cachedLights = FindObjectsByType<Light>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            cachedLights = FindObjectsByType<Light>(FindObjectsInactive.Exclude);
         }
 
         Vector3 samplePosition = headTransform != null ? headTransform.position : transform.position;
