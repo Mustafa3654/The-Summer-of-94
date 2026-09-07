@@ -399,6 +399,8 @@ public sealed class TeacherAI : MonoBehaviour
             screenOverlay.ShowJumpscare(jumpscareDuration);
         }
 
+        SubtitleManager.Caption("[Distorted mascot screeching!]", 3f, SubtitleManager.Priority.Critical);
+
         if (teacherAudioSource != null && screamClip != null)
         {
             teacherAudioSource.PlayOneShot(screamClip, 1f);
@@ -492,6 +494,44 @@ public sealed class TeacherAI : MonoBehaviour
             teacherAudioSource.pitch = Random.Range(0.88f, 1.06f);
             teacherAudioSource.PlayOneShot(footstepClip, footstepVolume);
         }
+
+        CaptionFootsteps();
+    }
+
+    /// <summary>
+    /// Captions the footsteps by how close and how urgent they are, so a deaf player gets the
+    /// same warning a hearing player does. The manager dedupes, so this stays on screen steadily
+    /// rather than flickering once per step.
+    /// </summary>
+    private void CaptionFootsteps()
+    {
+        if (playerTransform == null)
+        {
+            return;
+        }
+
+        float distance = Vector3.Distance(transform.position, playerTransform.position);
+        if (distance > 22f)
+        {
+            return;
+        }
+
+        string caption;
+        if (state == TeacherState.Chase)
+        {
+            caption = "[Heavy footsteps approaching rapidly...]";
+        }
+        else if (distance < 11f)
+        {
+            caption = "[Heavy footsteps nearby...]";
+        }
+        else
+        {
+            caption = "[Distant heavy footsteps...]";
+        }
+
+        // Slightly longer than the footstep interval, so the line holds while he keeps moving.
+        SubtitleManager.Caption(caption, footstepInterval * 1.8f, SubtitleManager.Priority.Threat);
     }
 
     private void ResolvePlayer()

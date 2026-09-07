@@ -78,6 +78,8 @@ public sealed class KeyItem : MonoBehaviour, IPlayerInteractable
             AudioSource.PlayClipAtPoint(pickupClip, transform.position, pickupVolume);
         }
 
+        SubtitleManager.Caption($"[Key picked up: {displayName}]", 3f, SubtitleManager.Priority.Interaction);
+
         if (logPickup)
         {
             Debug.Log($"Picked up: {displayName} ({itemId})");

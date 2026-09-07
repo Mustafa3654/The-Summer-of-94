@@ -40,6 +40,7 @@ public sealed class EyeCloseMechanic : MonoBehaviour
 
     private float closedAmount;
     private bool eyesClosed;
+    private float nextHeartbeatCaptionTime;
 
     /// <summary>0 when the eyes are open, 1 when fully shut.</summary>
     public float ClosedAmount => closedAmount;
@@ -132,6 +133,11 @@ public sealed class EyeCloseMechanic : MonoBehaviour
         {
             sanitySystem.SetEyesClosed(eyesClosed);
         }
+
+        SubtitleManager.Caption(
+            eyesClosed ? "[You squeeze your eyes shut]" : "[You open your eyes]",
+            2f,
+            SubtitleManager.Priority.Interaction);
     }
 
     private void ApplyHeartbeat()
@@ -148,6 +154,18 @@ public sealed class EyeCloseMechanic : MonoBehaviour
 
             float beatsPerMinute = Mathf.Lerp(calmBeatsPerMinute, panicBeatsPerMinute, intensity);
             heartbeatAudioSource.pitch = beatsPerMinute / 60f;
+
+            // The heartbeat is the only cue while the eyes are shut, so it must be captioned.
+            if (volumeBlend > 0.3f && Time.time >= nextHeartbeatCaptionTime)
+            {
+                nextHeartbeatCaptionTime = Time.time + 2f;
+                SubtitleManager.Caption(
+                    intensity > 0.5f
+                        ? "[Heartbeat thumping rapidly...]"
+                        : "[Heartbeat thudding steadily...]",
+                    2.6f,
+                    SubtitleManager.Priority.Threat);
+            }
         }
 
         if (cameraShake != null)

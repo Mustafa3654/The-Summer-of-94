@@ -60,6 +60,7 @@ public sealed class StormAmbience : MonoBehaviour
             Mathf.Min(thunderInterval.x, thunderInterval.y),
             Mathf.Max(thunderInterval.x, thunderInterval.y));
         thunderAudioSource.PlayOneShot(thunderClip, thunderVolume);
+        SubtitleManager.Caption("[Thunder rumbles]", 2.5f, SubtitleManager.Priority.Ambient);
     }
 
     public void SetBreakdownIntensity()
@@ -70,6 +71,7 @@ public sealed class StormAmbience : MonoBehaviour
         }
 
         thunderVolume = breakdownThunderVolume;
+        SubtitleManager.Caption("[Rain and thunder roaring outside...]", 4f, SubtitleManager.Priority.Ambient);
     }
 
     private static void ConfigureSource(AudioSource source, bool loop)

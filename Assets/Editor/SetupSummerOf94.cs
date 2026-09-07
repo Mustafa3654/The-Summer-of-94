@@ -67,8 +67,10 @@ public static class SetupSummerOf94
         atmosphere.transform.SetParent(environment.transform);
 
         // Lights first, so the foyer slam trigger can be wired to the LightningEffect.
-        CreateStormLight(atmosphere.transform);
-        CreateMoonLight(atmosphere.transform);
+        LightningEffect lightningEffect = CreateStormLight(atmosphere.transform);
+        Light moonLight = CreateMoonLight(atmosphere.transform);
+        CreateNightSky(atmosphere.transform, moonLight);
+        SetSerializedReference(lightningEffect, "nightSky", Object.FindAnyObjectByType<NightSkyController>());
         CreateGround(geometry.transform, floorMaterial);
         CreateCabinCorridor(geometry.transform, wallMaterial, beamMaterial);
 
@@ -110,7 +112,12 @@ public static class SetupSummerOf94
             "The entrance slams shut behind you in the foyer.\n" +
             "The office door needs the key from the bunk room table.\n\n" +
             "The NavMesh is baked automatically on Play by the NavMeshSurface\n" +
-            "on the Environment object, so the Teacher works with no manual bake.",
+            "on the Environment object, so the Teacher works with no manual bake.\n\n" +
+            "Closed captions for every sound are shown bottom-centre by the\n" +
+            "SubtitleManager on the Player.\n\n" +
+            "The sky is a procedural night skybox with a generated starfield\n" +
+            "and a moon aligned to the moonlight. Lightning flashes the sky,\n" +
+            "ambient light, and fog together, not just the ground.",
             "OK");
     }
 
@@ -128,7 +135,11 @@ public static class SetupSummerOf94
 
     private static void ConfigurePitchBlackEnvironment()
     {
-        RenderSettings.skybox = null;
+        // The night sky material is assigned here and driven at runtime by NightSkyController.
+        RenderSettings.skybox = CreateNightSkyboxMaterial();
+
+        // Flat ambient rather than skybox-derived: the lightning flash needs to spike the ambient
+        // colour in a single assignment, with no ambient probe re-bake.
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientLight = new Color(0.039f, 0.055f, 0.102f);
         RenderSettings.ambientIntensity = 0.35f;
@@ -970,6 +981,7 @@ public static class SetupSummerOf94
         // write the camera transform, and the others feed named shake sources into it.
         player.AddComponent<CameraShake>();
         player.AddComponent<ScreenOverlayController>();
+        player.AddComponent<SubtitleManager>();
         player.AddComponent<SanitySystem>();
         player.AddComponent<EyeCloseMechanic>();
 
@@ -1036,7 +1048,122 @@ public static class SetupSummerOf94
         SetSerializedReference(flashlight, "flashlightLight", flashlightLight);
     }
 
-    private static void CreateMoonLight(Transform parent)
+    /// <summary>
+    /// The procedural night skybox asset. Deep storm-night blue (#050811) over a pitch black
+    /// ground (#010205), with the sun disk switched off because the moon is a real object.
+    /// </summary>
+    private static Material CreateNightSkyboxMaterial()
+    {
+        EnsureFolder(MaterialFolder);
+
+        Shader proceduralSky = Shader.Find("Skybox/Procedural");
+        if (proceduralSky == null)
+        {
+            Debug.LogWarning("Skybox/Procedural shader not found; the sky will stay black.");
+            return null;
+        }
+
+        string materialPath = $"{MaterialFolder}/SummerOf94_NightSky_Skybox.mat";
+        Material skybox = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+        if (skybox == null)
+        {
+            skybox = new Material(proceduralSky) { name = "SummerOf94_NightSky_Skybox" };
+            AssetDatabase.CreateAsset(skybox, materialPath);
+        }
+
+        skybox.SetColor("_SkyTint", new Color(0.0196f, 0.0314f, 0.0667f));
+        skybox.SetColor("_GroundColor", new Color(0.0039f, 0.0078f, 0.0196f));
+        skybox.SetFloat("_AtmosphereThickness", 0.62f);
+        skybox.SetFloat("_Exposure", 0.42f);
+        skybox.SetFloat("_SunDisk", 0f);
+        skybox.SetFloat("_SunSize", 0f);
+        EditorUtility.SetDirty(skybox);
+        return skybox;
+    }
+
+    /// <summary>
+    /// Builds the night sky rig: the controller, the moon disc with its halo, and the moonlight
+    /// reference the moon aligns itself to. The starfield mesh is generated at runtime.
+    /// </summary>
+    private static void CreateNightSky(Transform parent, Light moonLight)
+    {
+        GameObject skyObject = new GameObject("Night Sky");
+        skyObject.transform.SetParent(parent);
+        skyObject.transform.localPosition = Vector3.zero;
+
+        // Unlit and fog-free, so the moon is not swallowed by the storm fog at distance.
+        Shader unlitShader = Shader.Find("Sprites/Default");
+        Material moonMaterial = CreateUnlitSkyMaterial(
+            "SummerOf94_Moon_Material",
+            new Color(0.78f, 0.85f, 1f, 1f),
+            unlitShader);
+        Material haloMaterial = CreateUnlitSkyMaterial(
+            "SummerOf94_Moon_Halo_Material",
+            new Color(0.55f, 0.68f, 0.95f, 0.14f),
+            unlitShader);
+
+        GameObject moon = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        moon.name = "Moon";
+        moon.transform.SetParent(skyObject.transform);
+        moon.transform.localScale = Vector3.one * 6.5f;
+        moon.GetComponent<Renderer>().sharedMaterial = moonMaterial;
+        Object.DestroyImmediate(moon.GetComponent<Collider>());
+        ConfigureSkyRenderer(moon.GetComponent<MeshRenderer>());
+
+        GameObject halo = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        halo.name = "Moon Halo";
+        halo.transform.SetParent(moon.transform);
+        halo.transform.localPosition = Vector3.zero;
+        halo.transform.localScale = Vector3.one * 2.3f;
+        halo.GetComponent<Renderer>().sharedMaterial = haloMaterial;
+        Object.DestroyImmediate(halo.GetComponent<Collider>());
+        ConfigureSkyRenderer(halo.GetComponent<MeshRenderer>());
+
+        NightSkyController controller = skyObject.AddComponent<NightSkyController>();
+        SetSerializedReference(controller, "skyboxMaterial", RenderSettings.skybox);
+        SetSerializedReference(controller, "moonLight", moonLight);
+        SetSerializedReference(controller, "moonTransform", moon.transform);
+        controller.PositionMoon();
+    }
+
+    private static Material CreateUnlitSkyMaterial(string materialName, Color color, Shader unlitShader)
+    {
+        EnsureFolder(MaterialFolder);
+
+        if (unlitShader == null)
+        {
+            unlitShader = Shader.Find("Universal Render Pipeline/Unlit");
+        }
+
+        string materialPath = $"{MaterialFolder}/{materialName}.mat";
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(materialPath);
+        if (material == null)
+        {
+            material = new Material(unlitShader) { name = materialName };
+            AssetDatabase.CreateAsset(material, materialPath);
+        }
+
+        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        material.renderQueue = 2900;
+        EditorUtility.SetDirty(material);
+        return material;
+    }
+
+    private static void ConfigureSkyRenderer(MeshRenderer meshRenderer)
+    {
+        if (meshRenderer == null)
+        {
+            return;
+        }
+
+        meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        meshRenderer.receiveShadows = false;
+        meshRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+        meshRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+    }
+
+    private static Light CreateMoonLight(Transform parent)
     {
         GameObject moonObject = new GameObject("Moonlight");
         moonObject.transform.SetParent(parent);
@@ -1049,9 +1176,14 @@ public static class SetupSummerOf94
         moonLight.shadows = LightShadows.Soft;
         moonLight.shadowStrength = 0.55f;
         moonLight.enabled = true;
+
+        // Pinning the sun keeps the procedural skybox lit by the moon rather than by whichever
+        // directional light happens to be brightest, which would be the lightning mid-strike.
+        RenderSettings.sun = moonLight;
+        return moonLight;
     }
 
-    private static void CreateStormLight(Transform parent)
+    private static LightningEffect CreateStormLight(Transform parent)
     {
         GameObject lightningObject = new GameObject("Lightning");
         lightningObject.transform.SetParent(parent);
@@ -1067,6 +1199,7 @@ public static class SetupSummerOf94
 
         LightningEffect lightningEffect = lightningObject.AddComponent<LightningEffect>();
         SetSerializedReference(lightningEffect, "lightningLight", lightningLight);
+        return lightningEffect;
     }
 
     private static Material CreateMaterial(string materialName, Color color, float metallic, float smoothness)

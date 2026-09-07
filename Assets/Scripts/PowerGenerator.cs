@@ -124,6 +124,8 @@ public sealed class PowerGenerator : MonoBehaviour, IPlayerInteractable
         powered = true;
         rampProgress = 0f;
 
+        SubtitleManager.Caption("[Pouring fuel into generator...]", 2.5f, SubtitleManager.Priority.Critical);
+
         if (startupClip != null)
         {
             generatorAudioSource.PlayOneShot(startupClip, 0.9f);
@@ -150,6 +152,7 @@ public sealed class PowerGenerator : MonoBehaviour, IPlayerInteractable
             }
         }
 
+        SubtitleManager.Caption("[Generator roaring to life!]", 4f, SubtitleManager.Priority.Critical);
         ShowMessage("The gate is open.", "He heard that. Run.", new Color(0.95f, 0.55f, 0.4f));
         Debug.Log("Generator started: floodlights up, exit gate unlocked, Teacher alerted.");
     }

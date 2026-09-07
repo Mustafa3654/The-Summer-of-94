@@ -46,6 +46,7 @@ public sealed class SanitySystem : MonoBehaviour
     private Light[] cachedLights = System.Array.Empty<Light>();
     private float nextLightSampleTime;
     private float illumination;
+    private float nextBreathCaptionTime;
 
     /// <summary>Current sanity, 0 to <see cref="maximumSanity"/>.</summary>
     public float Sanity => sanity;
@@ -193,7 +194,32 @@ public sealed class SanitySystem : MonoBehaviour
             float breathingBlend = Mathf.InverseLerp(breathingStartsBelow, 0f, sanity);
             breathingAudioSource.volume = maximumBreathingVolume * breathingBlend;
             breathingAudioSource.pitch = Mathf.Lerp(0.92f, 1.22f, breathingBlend);
+
+            CaptionBreathing(breathingBlend);
         }
+    }
+
+    /// <summary>
+    /// Captions the breathing while it is actually audible. Refreshed on an interval rather than
+    /// every frame, and the manager dedupes, so the line simply sits there while it applies.
+    /// </summary>
+    private void CaptionBreathing(float breathingBlend)
+    {
+        if (breathingBlend < 0.25f)
+        {
+            return;
+        }
+
+        if (Time.time < nextBreathCaptionTime)
+        {
+            return;
+        }
+
+        nextBreathCaptionTime = Time.time + 2f;
+        SubtitleManager.Caption(
+            breathingBlend > 0.65f ? "[Panicked gasping breaths...]" : "[Heavy anxious breathing...]",
+            2.6f,
+            SubtitleManager.Priority.Ambient);
     }
 
     /// <summary>

@@ -124,6 +124,8 @@ public sealed class CampExitGate : MonoBehaviour
             {
                 gateAudioSource.PlayOneShot(openingClip, openingVolume);
             }
+
+            SubtitleManager.Caption("[Camp gate grinding open...]", 4f, SubtitleManager.Priority.Critical);
         }
     }
 
@@ -154,6 +156,7 @@ public sealed class CampExitGate : MonoBehaviour
             screenOverlay.ShowMessage(victoryTitle, victorySubtitle, victoryColor);
         }
 
+        SubtitleManager.Caption("[You step through the gate into the dark]", 6f, SubtitleManager.Priority.Critical);
         Debug.Log("Escaped Camp Hollow. Survived The Summer of '94.");
     }
 }

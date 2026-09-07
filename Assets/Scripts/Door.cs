@@ -142,6 +142,7 @@ public class Door : MonoBehaviour, IPlayerInteractable
         isOpen = true;
         currentDegreesPerSecond = openDegreesPerSecond;
         PlayClip(creakClip, creakVolume);
+        SubtitleManager.Caption("[Door creaking open...]", 2.5f, SubtitleManager.Priority.Interaction);
     }
 
     public void Close()
@@ -154,6 +155,7 @@ public class Door : MonoBehaviour, IPlayerInteractable
         isOpen = false;
         currentDegreesPerSecond = openDegreesPerSecond;
         PlayClip(creakClip, creakVolume);
+        SubtitleManager.Caption("[Door creaking shut...]", 2.5f, SubtitleManager.Priority.Interaction);
     }
 
     /// <summary>Snaps the door shut fast with the slam sound. Used by <see cref="DoorSlamTrigger"/>.</summary>
@@ -163,6 +165,7 @@ public class Door : MonoBehaviour, IPlayerInteractable
         jiggleTimeRemaining = 0f;
         currentDegreesPerSecond = slamDegreesPerSecond;
         PlayClip(slamClip, slamVolume);
+        SubtitleManager.Caption("[Door SLAMS shut!]", 3f, SubtitleManager.Priority.Critical);
 
         if (lockAfterwards)
         {
@@ -184,6 +187,7 @@ public class Door : MonoBehaviour, IPlayerInteractable
 
         jiggleTimeRemaining = jiggleDuration;
         PlayClip(lockedRattleClip, lockedVolume);
+        SubtitleManager.Caption("[Door handle rattling - Locked]", 2.5f, SubtitleManager.Priority.Interaction);
     }
 
     protected void PlayClip(AudioClip clip, float volume)

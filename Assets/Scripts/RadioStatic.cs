@@ -117,6 +117,7 @@ public sealed class RadioStatic : MonoBehaviour, IPlayerInteractable
             detectorAudioSource.spatialBlend = 0.1f;
         }
 
+        SubtitleManager.Caption("[Picked up: 1994 transistor radio]", 3.5f, SubtitleManager.Priority.Interaction);
         Debug.Log("Took the transistor radio. Press E to change channel; its static reacts to spirits.");
     }
 
@@ -163,6 +164,14 @@ public sealed class RadioStatic : MonoBehaviour, IPlayerInteractable
         nextClickTime = Time.time + Mathf.Max(0.03f, interval);
         detectorAudioSource.pitch = Random.Range(0.94f, 1.1f);
         detectorAudioSource.PlayOneShot(detectorClickClip, detectorClickVolume * Mathf.Lerp(0.45f, 1f, detectorProximity));
+
+        // Captioned as a state rather than per click; the dedupe keeps it steady on screen.
+        SubtitleManager.Caption(
+            detectorProximity > 0.6f
+                ? "[Radio clicking rapidly - something is very close]"
+                : "[Radio clicking steadily...]",
+            1.2f,
+            SubtitleManager.Priority.Threat);
     }
 
     private float MeasureProximity()
@@ -209,6 +218,11 @@ public sealed class RadioStatic : MonoBehaviour, IPlayerInteractable
         channelBaseVolume = quiet ? quietStaticVolume : harshStaticVolume;
         radioAudioSource.volume = channelBaseVolume;
         radioAudioSource.Play();
+
+        SubtitleManager.Caption(
+            quiet ? "[Radio hissing with faint static...]" : "[Radio blaring harsh static...]",
+            3f,
+            SubtitleManager.Priority.Interaction);
     }
 
     private IEnumerator PlayTransmissionThenStatic()
@@ -218,6 +232,8 @@ public sealed class RadioStatic : MonoBehaviour, IPlayerInteractable
         radioAudioSource.clip = eerieTransmissionClip;
         radioAudioSource.volume = transmissionVolume;
         radioAudioSource.Play();
+
+        SubtitleManager.Caption("[Radio playing distorted whisper...]", 3.5f, SubtitleManager.Priority.Threat);
 
         float transmissionLength = eerieTransmissionClip != null ? eerieTransmissionClip.length : 2f;
         float fadeStart = Mathf.Max(0f, transmissionLength - transmissionFadeDuration);

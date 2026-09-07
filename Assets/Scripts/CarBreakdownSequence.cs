@@ -46,6 +46,7 @@ public sealed class CarBreakdownSequence : MonoBehaviour
             engineAudioSource.loop = true;
             engineAudioSource.volume = 0.28f;
             engineAudioSource.Play();
+            SubtitleManager.Caption("[Car engine idling...]", 4f, SubtitleManager.Priority.Ambient);
         }
 
         automaticBreakdownTimer = Random.Range(
@@ -86,6 +87,8 @@ public sealed class CarBreakdownSequence : MonoBehaviour
             engineAudioSource.volume = 0.82f;
             engineAudioSource.Play();
         }
+
+        SubtitleManager.Caption("[Engine sputtering and stalling...]", 3.5f, SubtitleManager.Priority.Critical);
 
         yield return StartCoroutine(FlickerDashboard());
         if (engineVibration != null) engineVibration.SetVibrating(false);

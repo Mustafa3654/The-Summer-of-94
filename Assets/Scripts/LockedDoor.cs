@@ -54,6 +54,7 @@ public sealed class LockedDoor : Door
             keyAccepted = true;
             SetLocked(false);
             PlayClip(unlockClip, unlockVolume);
+            SubtitleManager.Caption("[Lock clicking open]", 2.5f, SubtitleManager.Priority.Interaction);
 
             if (consumeKeyOnUnlock)
             {

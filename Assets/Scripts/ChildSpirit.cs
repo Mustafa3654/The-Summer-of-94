@@ -293,6 +293,7 @@ public sealed class ChildSpirit : MonoBehaviour
     public void Banish()
     {
         PlayClip(whisperClip, voiceVolume * 0.7f);
+        SubtitleManager.Caption("[Spirit fading away...]", 2.5f, SubtitleManager.Priority.Threat);
         SetAlpha(0f);
         state = SpiritState.Banished;
         stateTimer = banishedCooldown;
@@ -345,6 +346,11 @@ public sealed class ChildSpirit : MonoBehaviour
 
         bool laughing = Random.value > 0.45f;
         PlayClip(laughing ? laughClip : whisperClip, voiceVolume);
+
+        SubtitleManager.Caption(
+            laughing ? "[Distant child laughing...]" : "[Soft eerie whispering...]",
+            3f,
+            SubtitleManager.Priority.Threat);
 
         if (alertsTheTeacher)
         {

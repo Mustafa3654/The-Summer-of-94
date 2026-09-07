@@ -59,6 +59,8 @@ public sealed class FuelCanister : MonoBehaviour, IPlayerInteractable
             AudioSource.PlayClipAtPoint(sloshClip, transform.position, sloshVolume);
         }
 
+        SubtitleManager.Caption($"[Picked up: {displayName}]", 3f, SubtitleManager.Priority.Interaction);
+
         // Hauling a metal can about is not quiet.
         NoiseEvents.Emit(transform.position, pickupNoiseRadius);
 

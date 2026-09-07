@@ -89,6 +89,7 @@ public sealed class DoorSlamTrigger : MonoBehaviour
     private void SlamNow()
     {
         targetDoor.Slam(lockAfterSlam);
+        SubtitleManager.Caption("[Entrance door SLAMS shut!]", 3.5f, SubtitleManager.Priority.Critical);
 
         if (flashLightningOnSlam && lightningEffect != null)
         {
